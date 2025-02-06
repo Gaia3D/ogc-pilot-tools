@@ -1,0 +1,5 @@
+rootProject.name = 'ogc-pilot-tools'
+
+include ':geojson-generator'
+project(':geojson-generator').projectDir = new File(settingsDir, './geojson-generator')
+
