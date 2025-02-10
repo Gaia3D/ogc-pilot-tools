@@ -14,6 +14,7 @@ import org.geotools.geojson.geom.GeometryJSON;
 import org.geotools.referencing.CRS;
 import org.geotools.referencing.crs.DefaultGeographicCRS;
 import org.joml.Vector2d;
+import org.joml.Vector3d;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -41,6 +42,11 @@ public class GeojsonWriter {
             List<Gaia2DPolygon> polygons = object.getPolygons();
             for (Gaia2DPolygon polygon : polygons) {
                 SimpleFeature feature = createFeature(polygon);
+                collection.add(feature);
+            }
+
+            for (Gaia3DPolyline polyline : object.getPolylines()) {
+                SimpleFeature feature = createFeature(polyline);
                 collection.add(feature);
             }
 
@@ -152,5 +158,37 @@ public class GeojsonWriter {
         FeatureIdImpl featureId = new FeatureIdImpl(polygon.getName());
         List<Object> polygons = List.of(jtsPolygon);
         return new SimpleFeatureImpl(polygons, featureType, featureId);
+    }
+
+    private SimpleFeature createFeature(Gaia3DPolyline polyline) {
+        List<Vector3d> points = polyline.getExteriorRing();
+        int size = points.size();
+
+        Coordinate[] coordinates = new Coordinate[size];
+        for (int i = 0; i < size; i++) {
+            Vector3d vector = points.get(i);
+            coordinates[i] = new Coordinate(vector.x, vector.y, vector.z);
+        }
+        log.info("Polyline: " + polyline.getName() + ", size: " + size);
+
+        GeometryFactory geometryFactory = new GeometryFactory();
+        org.locationtech.jts.geom.LineString jtsLineString = geometryFactory.createLineString(coordinates);
+
+        CoordinateReferenceSystem crs = DefaultGeographicCRS.WGS84;
+        try {
+            crs = CRS.decode("EPSG:5186");
+        } catch (FactoryException e) {
+            throw new RuntimeException(e);
+        }
+
+        SimpleFeatureTypeBuilder builder = new SimpleFeatureTypeBuilder();
+        builder.setName("Polyline");
+        builder.setCRS(crs);
+        builder.add("geometry", org.locationtech.jts.geom.LineString.class);
+        SimpleFeatureType featureType = builder.buildFeatureType();
+
+        FeatureIdImpl featureId = new FeatureIdImpl(polyline.getName());
+        List<Object> polylines = List.of(jtsLineString);
+        return new SimpleFeatureImpl(polylines, featureType, featureId);
     }
 }

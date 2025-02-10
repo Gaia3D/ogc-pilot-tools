@@ -3,14 +3,13 @@ package com.gaia3d;
 import com.gaia3d.basic.geometry.GaiaBoundingBox;
 import lombok.extern.slf4j.Slf4j;
 import org.citygml4j.core.model.common.GeometryInfo;
-import org.citygml4j.core.model.core.AbstractCityObject;
-import org.citygml4j.core.model.core.AbstractCityObjectProperty;
-import org.citygml4j.core.model.core.CityModel;
+import org.citygml4j.core.model.core.*;
 import org.citygml4j.xml.CityGMLContext;
 import org.citygml4j.xml.CityGMLContextException;
 import org.citygml4j.xml.reader.CityGMLInputFactory;
 import org.citygml4j.xml.reader.CityGMLReadException;
 import org.joml.Vector2d;
+import org.joml.Vector3d;
 import org.xmlobjects.gml.model.geometry.DirectPositionList;
 import org.xmlobjects.gml.model.geometry.GeometricPositionList;
 import org.xmlobjects.gml.model.geometry.GeometryProperty;
@@ -29,6 +28,9 @@ public class GaiaGMLReader {
         List<Gaia2DPolygon> gaia2DPolygons = new ArrayList<>();
         cityGMLObject.setPolygons(gaia2DPolygons);
 
+        List<Gaia3DPolyline> gaia3DPolylines = new ArrayList<>();
+        cityGMLObject.setPolylines(gaia3DPolylines);
+
         try {
             CityGMLContext context = CityGMLContext.newInstance();
             CityGMLInputFactory factory = context.createCityGMLInputFactory();
@@ -39,7 +41,15 @@ public class GaiaGMLReader {
                 List<AbstractCityObjectProperty> cityObjectMembers = cityModel.getCityObjectMembers();
                 for (AbstractCityObjectProperty cityObjectProperty : cityObjectMembers) {
                     AbstractCityObject cityObject = cityObjectProperty.getObject();
+                    String id = cityObject.getId();
+
                     log.info("[CityObject] " + cityObject.getId());
+
+                    List<AbstractGenericAttributeProperty> genericAttributeProperties = cityObject.getGenericAttributes();
+                    for (AbstractGenericAttributeProperty genericAttributeProperty : genericAttributeProperties) {
+                        AbstractGenericAttribute genericAttribute = genericAttributeProperty.getObject();
+                        log.info("[CityObject][GenericAttribute] " + genericAttribute.getName() + " : " + genericAttribute.getValue());
+                    }
 
                     GeometryInfo geometryInfo = cityObject.getGeometryInfo();
                     log.info("[CityObject][GeometryInfo] " + geometryInfo.getGeometries().size());
@@ -59,41 +69,16 @@ public class GaiaGMLReader {
                                 List<Polygon> polygons = extractPolygons(shell);
                                 GaiaBoundingBox boundingBox = calculateBoundingBox(polygons);
 
-                                Gaia2DPolygon gaia2DPolygon = extractFloorPolygon(boundingBox, polygons);
+                                Gaia2DPolygon gaia2DPolygon = convertFloorPolygon(boundingBox, polygons);
                                 gaia2DPolygon.setName(cityObject.getId());
                                 gaia2DPolygons.add(gaia2DPolygon);
                             }
-                        } else if (geometry.getObject() instanceof MultiCurve) {
+                        } else if (geometry.getObject() instanceof MultiCurve multiCurve) {
                             log.info("[CityObject][GeometryInfo][Geometry][MultiCurve] " + geometry);
-                            MultiCurve multiCurve = (MultiCurve) geometry.getObject();
-                            List<CurveProperty> curveMembers = multiCurve.getCurveMember();
-                            for (CurveProperty curveProperty : curveMembers) {
-                                AbstractCurve curve = curveProperty.getObject();
-                                if (curve instanceof LineString) {
-                                    LineString lineString = (LineString) curve;
-                                    GeometricPositionList posList = lineString.getControlPoints();
-                                    DirectPositionList directPositionList = posList.getPosList();
-                                    List<Double> xyzPositions = directPositionList.getValue();
-                                    int directPositionSize = xyzPositions.size() / 3;
-
-                                    List<Vector2d> points = new ArrayList<>();
-                                    for (int i = 0; i < directPositionSize; i++) {
-                                        double x = xyzPositions.get(i * 3);
-                                        double y = xyzPositions.get(i * 3 + 1);
-                                        double z = xyzPositions.get(i * 3 + 2);
-
-                                        log.info("[CityObject][GeometryInfo][Geometry][MultiCurve][LineString][DirectPosition] " + x + ", " + y + ", " + z);
-                                        points.add(new Vector2d(x, y));
-                                    }
-
-                                    Gaia2DPolygon gaia2DPolygon = new Gaia2DPolygon();
-                                    gaia2DPolygon.getExteriorRing().addAll(points);
-                                    gaia2DPolygon.setHeight(0);
-                                    gaia2DPolygon.setAltitude(0);
-                                    gaia2DPolygon.setName(cityObject.getId());
-                                    gaia2DPolygons.add(gaia2DPolygon);
-                                }
-                            }
+                            List<LineString> lineStrings = extractLineStrings(multiCurve);
+                            List<Gaia3DPolyline> polylines = convertFloorPolyline(lineStrings);
+                            polylines.forEach(polyline -> polyline.setName(id));
+                            gaia3DPolylines.addAll(polylines);
                         }
                     }
                 }
@@ -216,7 +201,52 @@ public class GaiaGMLReader {
         return boundingBox;
     }
 
-    private Gaia2DPolygon extractFloorPolygon(GaiaBoundingBox boundingBox, List<Polygon> polygons) throws RuntimeException {
+    private List<LineString> extractLineStrings(MultiCurve multiCurve) {
+        List<LineString> lineStrings = new ArrayList<>();
+        List<CurveProperty> curveMembers = multiCurve.getCurveMember();
+        for (CurveProperty curveProperty : curveMembers) {
+            AbstractCurve curve = curveProperty.getObject();
+            if (curve instanceof LineString) {
+                LineString lineString = (LineString) curve;
+                lineStrings.add(lineString);
+            }
+        }
+        return lineStrings;
+    }
+
+    private List<Gaia3DPolyline> convertFloorPolyline(List<LineString> lineStrings) {
+        List<Gaia3DPolyline> gaia3DPolylines = new ArrayList<>();
+        for (LineString lineString : lineStrings) {
+            Gaia3DPolyline polyline = new Gaia3DPolyline();
+            GeometricPositionList posList = lineString.getControlPoints();
+            DirectPositionList directPositionList = posList.getPosList();
+            List<Double> xyzPositions = directPositionList.getValue();
+
+            List<Vector3d> floor = new ArrayList<>();
+            int directPositionSize = xyzPositions.size() / 3;
+            for (int i = 0; i < directPositionSize; i++) {
+                double x = xyzPositions.get(i * 3);
+                double y = xyzPositions.get(i * 3 + 1);
+                double z = xyzPositions.get(i * 3 + 2);
+                floor.add(new Vector3d(x, y, z));
+            }
+
+            if (floor.size() != directPositionSize) {
+                throw new RuntimeException("Failed to extract floor");
+            }
+
+            if (floor.size() < 2) {
+                log.warn("LineString has less than 2 points");
+                continue;
+            }
+
+            polyline.getExteriorRing().addAll(floor);
+            gaia3DPolylines.add(polyline);
+        }
+        return gaia3DPolylines;
+    }
+
+    private Gaia2DPolygon convertFloorPolygon(GaiaBoundingBox boundingBox, List<Polygon> polygons) throws RuntimeException {
         double minZ = boundingBox.getMinZ();
         for (Polygon polygon : polygons) {
             AbstractRingProperty exteriorRing = polygon.getExterior();

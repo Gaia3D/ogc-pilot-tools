@@ -14,5 +14,5 @@ import java.util.List;
 public class GaiaGMLObject {
     private String name;
     private List<Gaia2DPolygon> polygons;
-    private List<Gaia2dPolyline> polylines;
+    private List<Gaia3DPolyline> polylines;
 }
