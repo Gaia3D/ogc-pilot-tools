@@ -10,8 +10,8 @@
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
+            <option value="$PROJECT_DIR$/common" />
             <option value="$PROJECT_DIR$/geojson-generator" />
-            <option value="$PROJECT_DIR$/mago-common" />
           </set>
         </option>
       </GradleProjectSettings>
