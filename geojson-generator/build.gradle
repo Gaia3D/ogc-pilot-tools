@@ -10,6 +10,18 @@ repositories {
 }
 
 dependencies {
+    // CityGML4J
+    implementation 'org.citygml4j:citygml4j-xml:3.0.0'
+    implementation 'org.citygml4j:citygml4j-cityjson:3.0.0'
+
+    // GeoTools
+    implementation "org.geotools:gt-geotiff:26.5"
+    implementation 'org.geotools:gt-shapefile:26.5'
+    implementation 'org.geotools:gt-geojson:26.5'
+    implementation 'org.geotools:gt-geojsondatastore:26.5'
+    implementation "org.geotools:gt-coverage:26.5"
+    implementation "org.geotools:gt-main:26.5"
+
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
 }
