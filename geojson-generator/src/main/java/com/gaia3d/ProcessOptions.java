@@ -13,7 +13,8 @@ public enum ProcessOptions {
     VERBOSE("verbose", "V", "verbose", false, "Verbose mode"),
     // Path Options
     INPUT("input", "i", "input", true, "Input directory path"),
-    OUTPUT("output", "o", "output", true, "Output directory file path");
+    OUTPUT("output", "o", "output", true, "Output directory file path"),
+    DEBUG("debug", "d", "debug", false, "Debug mode");
 
     private final String longName;
     private final String shortName;

@@ -11,11 +11,18 @@ import java.util.List;
 public class Main {
     public static void main(String[] args) {
         Configurator.initConsoleLogger();
-        log.info("Hello, World!");
+        log.info("=====OGC Geojson Generator=====");
 
         CommandLineParser parser = new DefaultParser();
         try {
             CommandLine command = parser.parse(Configurator.createOptions(), args);
+
+            if (command.hasOption(ProcessOptions.HELP.getArgName())) {
+                HelpFormatter formatter = new HelpFormatter();
+                formatter.setWidth(200);
+                formatter.printHelp("ogc-geojson-generator", Configurator.createOptions());
+                return;
+            }
 
             /* check input directory */
             if (!command.hasOption(ProcessOptions.INPUT.getArgName())) {
@@ -45,18 +52,25 @@ public class Main {
 
             String[] extensions = new String[]{"gml"};
             List<File> inputFiles = (List<File>) FileUtils.listFiles(inputDirectory, extensions, true);
-
+            if (inputFiles.isEmpty()) {
+                log.error("No GML files found in the input directory");
+                return;
+            } else {
+                log.info("Found " + inputFiles.size() + " GML files");
+            }
 
             GaiaGMLReader reader = new GaiaGMLReader();
             GeojsonWriter writer = new GeojsonWriter();
             for (File file : inputFiles) {
+                log.info("===============================");
+                log.info("Reading file: " + file.getAbsolutePath());
                 GaiaGMLObject gaiaGMLObject = reader.read(file);
                 writer.write(gaiaGMLObject, new File(outputDirectory, file.getName().replace(".gml", ".geojson")));
             }
-
         } catch (ParseException e) {
             log.error("Failed to parse command line options, Please check the arguments.", e);
             throw new RuntimeException(e);
         }
+        log.info("===============================");
     }
 }

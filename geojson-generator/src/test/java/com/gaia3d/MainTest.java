@@ -12,6 +12,13 @@ class MainTest {
     private final String OUTPUT_DIRECTORY = "D:\\data\\ogc-pilot\\output";
 
     @Test
+    void help() {
+        Main.main(new String[]{
+                "--help"
+        });
+    }
+
+    @Test
     void buildings() {
         String name = "buildings";
         Main.main(new String[]{
@@ -23,6 +30,15 @@ class MainTest {
     @Test
     void noiseSource() {
         String name = "noise-source";
+        Main.main(new String[]{
+                "--input", createInputPath(INPUT_DIRECTORY, name),
+                "--output", createInputPath(OUTPUT_DIRECTORY, name)
+        });
+    }
+
+    @Test
+    void both() {
+        String name = "";
         Main.main(new String[]{
                 "--input", createInputPath(INPUT_DIRECTORY, name),
                 "--output", createInputPath(OUTPUT_DIRECTORY, name)

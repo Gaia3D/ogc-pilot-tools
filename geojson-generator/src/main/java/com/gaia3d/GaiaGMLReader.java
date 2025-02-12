@@ -4,6 +4,9 @@ import com.gaia3d.basic.geometry.GaiaBoundingBox;
 import lombok.extern.slf4j.Slf4j;
 import org.citygml4j.core.model.common.GeometryInfo;
 import org.citygml4j.core.model.core.*;
+import org.citygml4j.core.model.generics.DoubleAttribute;
+import org.citygml4j.core.model.generics.IntAttribute;
+import org.citygml4j.core.model.generics.StringAttribute;
 import org.citygml4j.xml.CityGMLContext;
 import org.citygml4j.xml.CityGMLContextException;
 import org.citygml4j.xml.reader.CityGMLInputFactory;
@@ -19,6 +22,7 @@ import org.xmlobjects.gml.model.geometry.primitives.*;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 public class GaiaGMLReader {
@@ -68,16 +72,49 @@ public class GaiaGMLReader {
 
                                 List<Polygon> polygons = extractPolygons(shell);
                                 GaiaBoundingBox boundingBox = calculateBoundingBox(polygons);
+                                double altitude = boundingBox.getMinZ();
+                                double height = boundingBox.getMaxZ();
 
                                 Gaia2DPolygon gaia2DPolygon = convertFloorPolygon(boundingBox, polygons);
                                 gaia2DPolygon.setName(cityObject.getId());
+
+                                Map<String, Object> attributes = gaia2DPolygon.getAttributes();
+                                attributes.put("name", id);
+                                attributes.put("height", height);
+                                attributes.put("altitude", altitude);
+
+                                // TODO : HARD CODED
+                                attributes.put("hght2", height);
+                                attributes.put("dem", altitude);
+
+                                gaia2DPolygon.setAltitude(altitude);
+                                gaia2DPolygon.setHeight(height);
                                 gaia2DPolygons.add(gaia2DPolygon);
                             }
                         } else if (geometry.getObject() instanceof MultiCurve multiCurve) {
                             log.info("[CityObject][GeometryInfo][Geometry][MultiCurve] " + geometry);
                             List<LineString> lineStrings = extractLineStrings(multiCurve);
                             List<Gaia3DPolyline> polylines = convertFloorPolyline(lineStrings);
-                            polylines.forEach(polyline -> polyline.setName(id));
+                            polylines.forEach((polyline) -> {
+                                polyline.setName(id);
+                                Map<String, Object> attributes = polyline.getAttributes();
+                                for (AbstractGenericAttributeProperty genericAttributeProperty : genericAttributeProperties) {
+                                    AbstractGenericAttribute genericAttribute = genericAttributeProperty.getObject();
+
+                                    if (genericAttribute instanceof StringAttribute) {
+                                        String name = changeColumnNames(genericAttribute.getName());
+                                        attributes.put(name, genericAttribute.getValue());
+                                    } else if (genericAttribute instanceof DoubleAttribute) {
+                                        String name = changeColumnNames(genericAttribute.getName());
+                                        attributes.put(name, genericAttribute.getValue());
+                                    } else if (genericAttribute instanceof IntAttribute) {
+                                        String name = changeColumnNames(genericAttribute.getName());
+                                        attributes.put(name, genericAttribute.getValue());
+                                    } else {
+                                        log.warn("Unsupported generic attribute type: " + genericAttribute.getClass().getName());
+                                    }
+                                }
+                            });
                             gaia3DPolylines.addAll(polylines);
                         }
                     }
@@ -275,5 +312,42 @@ public class GaiaGMLReader {
             }
         }
         throw new RuntimeException("Failed to extract floor");
+    }
+
+
+    /* Extract the following attributes from the CityGML file
+        width -> width
+        number of lanes -> n_o_l
+        number of small vehicles per hour at day -> fw_d_s
+        number of large vehicles per hour at day -> fw_d_l
+        number of small vehicles per hour at night -> fw_n_s
+        number of large vehicles per hour at night -> fw_n_l
+        speed of small vehicles at day -> vl_d_s
+        speed of large vehicles at day -> vl_d_l
+        speed of small vehicles at night -> vl_n_s
+        speed of large vehicles at night -> vl_n_l
+        surface status code -> surf
+        applied additional noise reduction method -> cm
+        noise reduction effect by the method -> cm_effect
+     */
+
+    private String changeColumnNames(String originalName) {
+        // TODO : HARD CODED
+        return switch (originalName) {
+            case "width" -> "width";
+            case "number of lanes" -> "n_o_l";
+            case "number of small vehicles per hour at day" -> "fw_d_s";
+            case "number of large vehicles per hour at day" -> "fw_d_l";
+            case "number of small vehicles per hour at night" -> "fw_n_s";
+            case "number of large vehicles per hour at night" -> "fw_n_l";
+            case "speed of small vehicles at day" -> "vl_d_s";
+            case "speed of large vehicles at day" -> "vl_d_l";
+            case "speed of small vehicles at night" -> "vl_n_s";
+            case "speed of large vehicles at night" -> "vl_n_l";
+            case "surface status code" -> "surf";
+            case "applied additional noise reduction method" -> "cm";
+            case "noise reduction effect by the method" -> "cm_effect";
+            default -> originalName;
+        };
     }
 }

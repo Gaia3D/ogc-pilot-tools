@@ -16,7 +16,7 @@ public class Gaia2DPolygon {
     private String name = "unnamed";
     private double height = 0.0d;
     private double altitude = 0.0d;
-    private final Map<String, String> attributes = new HashMap<>();
+    private final Map<String, Object> attributes = new LinkedHashMap<>();
     private final List<List<Vector2d>> interiorRings = new ArrayList<>();
     private final List<Vector2d> exteriorRing = new ArrayList<>();
 }
